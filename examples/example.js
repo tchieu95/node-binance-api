@@ -8,10 +8,10 @@ const binance = new Binance().options({
 
 const currencyName = "TUSDUSDT";
 const timeLoop = process.env.TIMELOOP; // milisecond
-const fee = process.env.FEE;
-const minQuantity = process.env.MIN_QUANTITY;
-const buyPrice = process.env.BUY_PRICE;
-const sellPrice = process.env.SELL_PRICE;
+const fee = Number(process.env.FEE);
+const minQuantity = Number(process.env.MIN_QUANTITY);
+const buyPrice = Number(process.env.BUY_PRICE);
+const sellPrice = Number(process.env.SELL_PRICE);
 
 async function trading(buyPrice, sellPrice) {
   console.log(new Date().toLocaleTimeString());
