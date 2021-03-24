@@ -6,9 +6,12 @@ const binance = new Binance().options({
   APISECRET: process.env.API_SECRET,
 });
 
-const currencyName = "TUSDUSDT";
-const timeLoop = process.env.TIMELOOP; // milisecond
+const pairName = process.env.PAIR_NAME;
+const firstCurrency = process.env.FIRST;
+const secondCurrency = process.env.SECOND;
+const timeLoop = Number(process.env.TIMELOOP); // milisecond
 const fee = Number(process.env.FEE);
+const maxQuantity = Number(process.env.MAX_QUANTITY);
 const minQuantity = Number(process.env.MIN_QUANTITY);
 const buyPrice = Number(process.env.BUY_PRICE);
 const sellPrice = Number(process.env.SELL_PRICE);
@@ -16,38 +19,57 @@ const sellPrice = Number(process.env.SELL_PRICE);
 async function trading(buyPrice, sellPrice) {
   console.log(new Date().toLocaleTimeString());
 
-  const result = await binance.prices("TUSDUSDT");
-  console.log("Price TUSD/USDT: " + result.TUSDUSDT);
+  const prices = await binance.prices(pairName);
+  let currentPrice = prices[pairName];
+  console.log(`Current price ${pairName}: ${currentPrice}`);
 
   const balances = await binance.balance();
+  const firstBalance = balances[firstCurrency];
+  const firstBalanceAvailable = balances[firstCurrency].available;
+  const secondBalance = balances[secondCurrency];
+  const secondBalanceAvailable = balances[secondCurrency].available;
 
-  const usdtBalance = balances.USDT.available;
-  const tusdBalance = balances.TUSD.available;
+  console.log(`${firstCurrency} balance: ${firstBalanceAvailable}`);
+  console.log(`${secondCurrency} balance: ${secondBalanceAvailable}`);
 
-  console.log("USDT balance: " + JSON.stringify(balances.USDT));
-  console.log("TUSD balance: " + JSON.stringify(balances.TUSD));
+  const orders = await binance.openOrders(pairName);
 
-  // Nếu còn tiền usdt chưa đặt lệnh mua thì đặt lệnh mua
-  if (usdtBalance > 0 && balances.USDT.onOrder < 0.1) {
-    const quantity =
-      Math.floor((100 * usdtBalance) / buyPrice / (1 + fee)) / 100; // floor 2 decimal numbers
+  // Đã đặt lệnh rồi thì không làm gì cả
+  if (Array.isArray(orders) && orders.length > 0) {
+    console.log("Return because there are some existing orders");
+    // return;
+  }
+
+  // Nếu còn tiền chưa đặt lệnh mua thì đặt lệnh mua
+  if (secondBalanceAvailable > 0) {
+    const optimiseBuyPrice = Math.min(buyPrice, Number(currentPrice));
+
+    const quantity = Math.min(
+      maxQuantity,
+      Math.floor(
+        (100 * secondBalanceAvailable) / optimiseBuyPrice / (1 + fee)
+      ) / 100
+    ); // floor 2 decimal numbers
     console.log("quantity " + quantity);
-    console.log("price " + buyPrice);
+    console.log("price " + optimiseBuyPrice);
 
     if (quantity >= minQuantity) {
-      binance.buy(currencyName, quantity, buyPrice).catch((e) => {
+      binance.buy(pairName, quantity, optimiseBuyPrice).catch((e) => {
         console.log("------------------- buy error");
         console.log(e);
       });
     }
   }
 
-  if (tusdBalance > 0 && balances.TUSD.onOrder < 0.1) {
-    const quantity = Math.floor(100 * tusdBalance) / 100;
+  if (firstBalanceAvailable > 0) {
+    const quantity = Math.min(
+      maxQuantity,
+      Math.floor(100 * firstBalanceAvailable) / 100
+    );
     console.log("quantity " + quantity);
     console.log("price " + sellPrice);
     if (quantity >= minQuantity) {
-      binance.sell(currencyName, quantity, sellPrice).catch((e) => {
+      binance.sell(pairName, quantity, sellPrice).catch((e) => {
         console.log("------------------- sell error");
         console.log(e);
       });
